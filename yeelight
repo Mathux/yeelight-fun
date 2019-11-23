@@ -1,0 +1,70 @@
+#!/usr/bin/env python
+
+from yeelight import Bulb
+import argparse
+
+import colorsys
+import random
+
+from openrazer.client import DeviceManager
+from time import sleep
+
+import numpy as np
+
+IP = "192.168.0.14"
+
+def random_color():
+    rgb = colorsys.hsv_to_rgb(random.uniform(0, 1), random.uniform(0.5, 1), 1)
+    return tuple(map(lambda x: int(256 * x), rgb))
+
+
+def random_keyboard(keyboard):
+    cols = keyboard.fx.advanced.cols
+    rows = keyboard.fx.advanced.rows
+    for s in range(cols+rows):
+        for r in range(min(s, rows)):
+            c = min(s-r, cols-1)
+            rgb = random_color()
+            keyboard.fx.advanced.matrix.set(r, c, rgb)
+    keyboard.fx.advanced.draw()
+    
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description='Script adjust brightness of my yeelight bulb')
+    parser.add_argument('mode', choices=['set','change','toggle', "color"], help='set/change/toggle/')
+    parser.add_argument('value', help='value in set mode or up down in change mode')
+    args = parser.parse_args()
+    return args
+
+
+if __name__ == '__main__':
+    bulb = Bulb(IP)
+
+    args = parse_args()
+
+    def clip(v):
+        return min(max(0, v), 100)
+    
+    if args.mode == "set":
+        val = clip(int(args.value))
+        bulb.set_brightness(val)
+        
+    elif args.mode == "change":
+        assert(args.value in ["up", "down"])
+        bright = int(bulb.get_properties()["bright"])
+        if args.value == "up":
+            new = clip(bright + 10)
+        elif args.value == "down":
+            new = clip(bright - 10)
+            
+        bulb.set_brightness(new)
+
+    elif args.mode == "toggle":
+        bulb.toggle()
+
+    elif args.mode == "color":
+        device_manager = DeviceManager()
+        keyboard = device_manager.devices[0]
+        random_keyboard(keyboard)
+        
